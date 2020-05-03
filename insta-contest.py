@@ -72,7 +72,6 @@ if __name__ == '__main__':
             if is_user_exist(user):
                 successful_commentators.append((comment['user']['pk'], comment['user']['username']))
                 break
-    print(len(successful_commentators))
 
     liked_users = set(get_liked_users(media_id))
     for commentator in successful_commentators:
