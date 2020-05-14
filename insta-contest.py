@@ -12,43 +12,19 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_media_id_from_url(insta_url):
-    return bot.get_media_id_from_link(insta_url)
-
-
-def get_media_comments(media_identificator):
-    all_comments = bot.get_media_comments_all(media_identificator)
-    return all_comments
-
-
 def get_mentioned_friends(comm):
-    match = re.findall(r'(?:@)([A-Za-z0-9_](?:'
-                       r'(?:[A-Za-z0-9_]|(?:\.'
-                       r'(?!\.))){0,28}'
-                       r'(?:[A-Za-z0-9_]))?)',
-                       comm['text']
-                       )
+    pattern = re.compile(r'''
+                (?:@) ([A-Za-z0-9_](?:
+                (?:[A-Za-z0-9_]|
+                (?:\.(?!\.))){0,28}
+                (?:[A-Za-z0-9_]))?)
+              ''', re.X)
+    match = re.findall(pattern, comm['text'])
     return match
 
 
-def is_user_exist(mentioned_user):
-    existing_user = bot.get_user_id_from_username(mentioned_user)
-    return existing_user
-
-
-def get_liked_users(id_media):
-    return bot.get_media_likers(id_media)
-
-
-def get_user_followers(id_user):
-    followers = bot.get_user_followers(id_user)
-    return followers
-
-
-def create_winners_set(contest_winners):
-    winners = []
-    for winner in contest_winners:
-        winners.append(winner[1])
+def get_winners_names(contest_winners):
+    winners = [name for __, name in contest_winners]
     return set(winners)
 
 
@@ -62,26 +38,21 @@ if __name__ == '__main__':
     post_url = parse_args().url
 
     user_id = bot.get_user_id_from_username(user_nickname)
-    media_id = get_media_id_from_url(post_url)
-    comments = get_media_comments(media_id)
+    media_id = bot.get_media_id_from_link(post_url)
+    comments = bot.get_media_comments_all(media_id)
 
-    successful_commentators = []
+    successful_commentators = set()
     for comment in comments:
         mentioned_friends = get_mentioned_friends(comment)
         for user in mentioned_friends:
-            if is_user_exist(user):
-                successful_commentators.append((comment['user']['pk'], comment['user']['username']))
+            if bot.get_user_id_from_username(user):
+                successful_commentators.add((comment['user']['pk'], comment['user']['username']))
                 break
+    liked_users = set(bot.get_media_likers(media_id))
+    successful_commentators = {(user_id, __) for user_id, __ in successful_commentators if str(user_id) in liked_users}
 
-    liked_users = set(get_liked_users(media_id))
-    for commentator in successful_commentators:
-        if commentator[0] not in liked_users:
-            successful_commentators.remove(commentator)
-
-    user_followers = set(get_user_followers(user_id))
-    for commentator in successful_commentators:
-        if commentator[0] not in user_followers:
-            successful_commentators.remove(commentator)
+    followers = set(bot.get_user_followers(user_id))
+    successful_commentators = {(user_id, __) for user_id, __ in successful_commentators if str(user_id) in followers}
 
     print('Winners of the instagram contest: ')
-    print(*create_winners_set(successful_commentators), sep=',')
+    print(*get_winners_names(successful_commentators), sep=',')
