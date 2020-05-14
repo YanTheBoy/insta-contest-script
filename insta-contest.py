@@ -13,12 +13,17 @@ def parse_args():
 
 
 def get_mentioned_friends(comm):
+    """
+    Used ready done regex from:
+    https://blog.jstassen.com/2016/03/code-regex-for-instagram-username-and-hashtags/
+    """
     pattern = re.compile(r'''
                 (?:@) ([A-Za-z0-9_](?:
-                (?:[A-Za-z0-9_]|
-                (?:\.(?!\.))){0,28}
+                (?: [A-Za-z0-9_]|
+                (?:\.(?!\.))) {0,28}
                 (?:[A-Za-z0-9_]))?)
               ''', re.X)
+
     match = re.findall(pattern, comm['text'])
     return match
 
