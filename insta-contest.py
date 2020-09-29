@@ -1,66 +1,63 @@
 from instabot import Bot
 import re
 import argparse
-
-bot = Bot()
-bot.login(username="cosmo_vibes2020", password="Zaq12wsx12345", ask_for_code=True)
-user_id = bot.get_user_id_from_username("lego")
-user_info = bot.get_user_info(user_id)
+from dotenv import load_dotenv
+import os
 
 
-
-
-def get_media_id_from_url(insta_url):
-    return bot.get_media_id_from_link(insta_url)
-
-
-def get_media_comments(media_identificator):
-    all_comments = bot.get_media_comments_all(media_identificator)
-    return all_comments
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('url', help='Enter url of instagram post')
+    parser.add_argument('nickname', help='Enter nickname of instagram account')
+    return parser.parse_args()
 
 
 def get_mentioned_friends(comm):
-    match = re.findall(r'(?:@)([A-Za-z0-9_](?:'
-                       r'(?:[A-Za-z0-9_]|(?:\.'
-                       r'(?!\.))){0,28}'
-                       r'(?:[A-Za-z0-9_]))?)',
-                       comm['text']
-                       )
+    """
+    Used ready done regex from:
+    https://blog.jstassen.com/2016/03/code-regex-for-instagram-username-and-hashtags/
+    """
+    pattern = re.compile(r'''
+                (?:@) ([A-Za-z0-9_](?:
+                (?: [A-Za-z0-9_]|
+                (?:\.(?!\.))) {0,28}
+                (?:[A-Za-z0-9_]))?)
+              ''', re.X)
+
+    match = re.findall(pattern, comm['text'])
     return match
 
 
-def is_user_exist(mentioned_user):
-    existing_user = bot.get_user_id_from_username(mentioned_user)
-    return existing_user
+def get_winners_names(contest_winners):
+    winners = [name for __, name in contest_winners]
+    return set(winners)
 
 
-def get_liked_users(id_media):
-    return bot.get_media_likers(id_media)
+if __name__ == '__main__':
+    load_dotenv()
+    username = os.getenv('INSTAGRAM_LOGIN')
+    password = os.getenv('INSTAGRAM_PASSWORD')
+    bot = Bot()
+    bot.login(username=username, password=password, ask_for_code=True)
+    user_nickname = parse_args().nickname
+    post_url = parse_args().url
 
+    user_id = bot.get_user_id_from_username(user_nickname)
+    media_id = bot.get_media_id_from_link(post_url)
+    comments = bot.get_media_comments_all(media_id)
 
-url = 'https://www.instagram.com/p/B_nnz3gg7wj/'
-media_id = get_media_id_from_url(url)
-comments = get_media_comments(media_id)
-print(comments)
-successful_commentators = []
-liked_users = set(get_liked_users(media_id))
+    successful_commentators = set()
+    for comment in comments:
+        mentioned_friends = get_mentioned_friends(comment)
+        for user in mentioned_friends:
+            if bot.get_user_id_from_username(user):
+                successful_commentators.add((comment['user']['pk'], comment['user']['username']))
+                break
+    liked_users = set(bot.get_media_likers(media_id))
+    successful_commentators = {(user_id, __) for user_id, __ in successful_commentators if str(user_id) in liked_users}
 
-for comment in comments:
-    mentioned_friends = get_mentioned_friends(comment)
-    for user in mentioned_friends:
-        if is_user_exist(user):
-            print('ok')
-            successful_commentators.append((comment['user']['pk'], comment['user']['username']))
-            break
-print(len(successful_commentators))
-for commentator in successful_commentators:
-    if commentator[0] not in liked_users:
-        successful_commentators.remove(commentator)
-print(len(successful_commentators))
+    followers = set(bot.get_user_followers(user_id))
+    successful_commentators = {(user_id, __) for user_id, __ in successful_commentators if str(user_id) in followers}
 
-
-'''4110709400 1.khadzhimuradovich
-21470092919 iskhakov.13
-25471586854 magomedov___80
-4161004016 1.abdulaevich
-5348505961 1_ahmedovich'''
+    print('Winners of the instagram contest: ')
+    print(*get_winners_names(successful_commentators), sep=',')
