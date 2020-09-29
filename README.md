@@ -7,7 +7,7 @@ $ pip install -r requirements.txt
 ```
 Run insta-contest.py for getting winners.
 ```bash
-$ python3 insta-contest.py
+$ python2 insta-contest.py
 ```
 
 
